@@ -1,3 +1,4 @@
+# app/services/pipeline.py
 from __future__ import annotations
 
 import shutil
@@ -40,14 +41,9 @@ class PipelineService:
             f"RCLONE_BIN={settings.rclone_bin}",
         ]
 
-    def _run_make_command(
-        self,
-        args: list[str],
-        start_message: str,
-    ) -> PipelineResult:
+    def _run_make_command(self, args: list[str], start_message: str) -> PipelineResult:
         result = PipelineResult(success=False, message=start_message)
         result.add_log(start_message)
-
         make_args = self._build_make_args(args)
         logger.info("Exécution commande make : %s", " ".join(make_args))
 
@@ -59,14 +55,11 @@ class PipelineService:
             cwd=str(BASE_DIR),
             bufsize=1,
         )
-
         assert process.stdout is not None
-
         for line in process.stdout:
             cleaned = line.rstrip()
             if cleaned:
                 result.add_log(cleaned)
-
         process.stdout.close()
         return_code = process.wait()
 
@@ -80,11 +73,7 @@ class PipelineService:
         result.message = "Commande exécutée avec succès."
         return result
 
-    def run_upscale(
-        self,
-        collection_name: str,
-        raw_filename: str,
-    ) -> PipelineResult:
+    def run_upscale(self, collection_name: str, raw_filename: str) -> PipelineResult:
         ensure_collection_dirs(collection_name)
         paths = get_collection_paths(collection_name)
 
@@ -144,9 +133,7 @@ class PipelineService:
         return result
 
     def run_edit_finalize(
-        self,
-        collection_name: str,
-        upscaled_filename: str,
+        self, collection_name: str, upscaled_filename: str
     ) -> PipelineResult:
         ensure_collection_dirs(collection_name)
         paths = get_collection_paths(collection_name)
@@ -223,7 +210,6 @@ class PipelineService:
         combined_logs.append(
             f"✅ Fichier final prêt dans 03_final_png après sauvegarde et fermeture GIMP : {final_file_path.name}"
         )
-
         return PipelineResult(
             success=True,
             message="Étape 2 terminée.",
@@ -236,6 +222,7 @@ class PipelineService:
         collection_name: str,
         final_filename: str,
         provider: str,
+        template_id: str = "",
     ) -> PipelineResult:
         ensure_collection_dirs(collection_name)
         paths = get_collection_paths(collection_name)
@@ -284,6 +271,7 @@ class PipelineService:
             publish_result = self.gelato_service.publish(
                 collection_name=collection_name,
                 file_path=final_file_path,
+                template_id=template_id,  # 🆕 On passe le bon template ID
             )
         else:
             publish_result = self.printify_service.publish(
@@ -317,7 +305,6 @@ class PipelineService:
             )
 
         combined_logs.append(f"✅ Cycle terminé avec succès sur {provider_normalized}.")
-
         return PipelineResult(
             success=True,
             message=f"Publication {provider_normalized} réussie.",

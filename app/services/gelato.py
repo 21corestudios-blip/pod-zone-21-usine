@@ -1,5 +1,4 @@
 # app/services/gelato.py
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,7 +10,6 @@ from app.logger import get_logger
 from app.models import PipelineResult
 from app.services.drive import DriveService, DriveServiceError
 
-
 logger = get_logger(__name__)
 
 
@@ -20,27 +18,22 @@ class GelatoServiceError(Exception):
 
 
 class GelatoService:
-    BASE_URL = "https://order.gelatoapis.com/v4"
+    # 🆕 On utilise l'API Ecommerce pour publier des produits en boutique
+    BASE_URL = "https://ecommerce.gelatoapis.com/v1"
 
     def __init__(self, drive_service: DriveService | None = None) -> None:
         self.drive_service = drive_service or DriveService()
 
     def validate_config(self) -> None:
         missing_fields: list[str] = []
-
         if not settings.gelato_api_key:
             missing_fields.append("GELATO_API_KEY")
-
         if not settings.gelato_store_id:
             missing_fields.append("GELATO_STORE_ID")
 
-        if not settings.gelato_template_id:
-            missing_fields.append("GELATO_TEMPLATE_ID")
-
         if missing_fields:
             raise GelatoServiceError(
-                "Configuration Gelato incomplète : "
-                + ", ".join(missing_fields)
+                "Configuration Gelato incomplète : " + ", ".join(missing_fields)
             )
 
     def build_headers(self) -> dict[str, str]:
@@ -49,47 +42,28 @@ class GelatoService:
             "Content-Type": "application/json",
         }
 
-    def build_payload(
-        self,
-        file_path: Path,
-        file_url: str,
-    ) -> dict:
-        title = file_path.stem
-
-        return {
-            "title": title,
-            "templateId": settings.gelato_template_id,
-            "files": [
-                {
-                    "type": "default",
-                    "url": file_url,
-                }
-            ],
-        }
-
     def publish(
-        self,
-        collection_name: str,
-        file_path: Path,
+        self, collection_name: str, file_path: Path, template_id: str = ""
     ) -> PipelineResult:
-        result = PipelineResult(
-            success=False,
-            message="Publication Gelato échouée.",
-        )
+        result = PipelineResult(success=False, message="Publication Gelato échouée.")
 
         try:
             self.validate_config()
+
+            if not template_id:
+                raise GelatoServiceError(
+                    "Aucun ID de Template Gelato n'a été fourni par l'interface."
+                )
 
             if not file_path.exists():
                 raise GelatoServiceError(
                     f"Fichier introuvable pour publication Gelato : {file_path}"
                 )
 
-            result.add_log(
-                f"📦 Préparation publication Gelato : {file_path.name}"
-            )
+            result.add_log(f"📦 Préparation publication Gelato : {file_path.name}")
 
             try:
+                # Récupération du lien public de l'image sur Google Drive
                 file_url = self.drive_service.get_public_download_url_by_name(
                     file_path.name
                 )
@@ -97,33 +71,71 @@ class GelatoService:
                 raise GelatoServiceError(str(exc)) from exc
 
             result.add_log("☁️ URL Drive récupérée avec succès.")
+            headers = self.build_headers()
 
-            payload = self.build_payload(file_path=file_path, file_url=file_url)
-            endpoint = (
-                f"{self.BASE_URL}/stores/"
-                f"{settings.gelato_store_id}/products"
-            )
+            # --- ÉTAPE 1 : Lire le Template depuis Gelato ---
+            template_endpoint = f"{self.BASE_URL}/templates/{template_id}"
+            result.add_log("🔍 Lecture du Template Gelato...")
+
+            resp_template = requests.get(template_endpoint, headers=headers, timeout=30)
+            if resp_template.status_code != 200:
+                raise GelatoServiceError(
+                    f"Impossible de lire le template (HTTP {resp_template.status_code}) : {resp_template.text}"
+                )
+
+            template_data = resp_template.json()
+
+            # --- ÉTAPE 2 : Construire le Payload avec les variantes ---
+            variants_payload = []
+
+            # Pour chaque taille/couleur du template, on injecte l'URL de notre image
+            for var in template_data.get("variants", []):
+                placeholders = []
+                for ph in var.get("imagePlaceholders", []):
+                    placeholders.append(
+                        {"name": ph.get("name", "default"), "fileUrl": file_url}
+                    )
+
+                variants_payload.append(
+                    {"templateVariantId": var.get("id"), "placeholders": placeholders}
+                )
+
+            if not variants_payload:
+                result.add_log(
+                    "⚠️ Attention : Aucune variante trouvée dans ce template."
+                )
+
+            product_title = file_path.stem
+
+            payload = {
+                "templateId": template_id,
+                "title": product_title,  # Nom du fichier utilisé comme titre du produit
+                "description": template_data.get(
+                    "description", f"Design de la collection {collection_name}."
+                ),
+                "variants": variants_payload,
+            }
+
+            # --- ÉTAPE 3 : Publier le produit sur la boutique ---
+            publish_endpoint = f"{self.BASE_URL}/stores/{settings.gelato_store_id}/products:create-from-template"
 
             logger.info(
-                "Publication Gelato | collection=%s | file=%s",
+                "Publication E-commerce | collection=%s | template=%s",
                 collection_name,
-                file_path.name,
+                template_id,
             )
+            result.add_log(f"🚀 Création du produit '{product_title}' en boutique...")
 
             response = requests.post(
-                endpoint,
-                headers=self.build_headers(),
-                json=payload,
-                timeout=60,
+                publish_endpoint, headers=headers, json=payload, timeout=60
             )
 
             if response.status_code not in {200, 201, 202}:
                 raise GelatoServiceError(
-                    "Réponse Gelato invalide "
-                    f"(HTTP {response.status_code}) : {response.text}"
+                    f"Réponse Gelato invalide (HTTP {response.status_code}) : {response.text}"
                 )
 
-            result.add_log("✅ Publication Gelato réussie.")
+            result.add_log("✅ Produit créé avec succès sur ta boutique !")
             result.success = True
             result.message = "Publication Gelato réussie."
             result.output_file = file_path
