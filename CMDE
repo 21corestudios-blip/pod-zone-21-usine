@@ -1,0 +1,9 @@
+venv :
+source .venv/bin/activate
+
+Lancement : python3 -m app.main
+
+git status
+git add -A
+git commit -m "ton message de commit"
+git push
