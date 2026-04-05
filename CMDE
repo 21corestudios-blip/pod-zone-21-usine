@@ -6,7 +6,7 @@ Lancement dans (venv): python3 -m app.main
 git status
 git add .
 git diff --cached --name-only
-git commit -m "chore: save work 20260405_1747"
+git commit -m "chore: ignore local environment and secrets"
 git push
 
 Lancement test : python3 -m black app/ tests/
