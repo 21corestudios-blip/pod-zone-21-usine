@@ -6,7 +6,11 @@ Lancement dans (venv): python3 -m app.main
 git status
 git add .
 git diff --cached --name-only
-git commit -m "chore: ignore local environment and secrets"
+git commit -m "fix: pin compatible runtime dependencies"
 git push
 
 Lancement test : python3 -m black app/ tests/
+
+git add .env.example
+git commit -m "chore: sanitize environment example"
+git push
