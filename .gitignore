@@ -1,15 +1,35 @@
-.env
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtualenv
 .venv/
 venv/
-__pycache__/
-*.pyc
-logs/
-.gradio/
+env/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+client_secrets.json
+mycreds.txt
+credentials.json
+token.json
+secrets.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Build / temp
 dist/
 build/
-coverage/
-.DS_Store
-
-# ⚠️ SÉCURITÉ : Ne jamais uploader les identifiants et clés d'accès !
-mycreds.txt
-client_secrets.json
+*.log
+tmp/
+temp/
+workspace/
