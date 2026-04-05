@@ -1,6 +1,3 @@
-Python 3.11 recommandé
-création du venv avec python3.11
-
 # POD Zone 21 - Usine Locale
 
 Usine locale de traitement d'images et de publication Print-on-Demand (POD), pilotée par une interface **Gradio**.
@@ -52,6 +49,7 @@ tests/
   test_config.py
   test_files.py
   test_payloads.py
+  test_pipeline.py
 Makefile
 README.md
 pyproject.toml
