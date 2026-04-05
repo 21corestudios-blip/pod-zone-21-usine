@@ -1,4 +1,3 @@
-# app/services/pipeline.py
 from __future__ import annotations
 
 import shutil
@@ -30,14 +29,12 @@ class PipelineServiceError(Exception):
 
 class PipelineService:
     def __init__(self) -> None:
-        # FACTORY : On enregistre dynamiquement nos providers
         self._providers: dict[str, PublishProvider] = {
             "gelato": GelatoService(),
             "printify": PrintifyService(),
         }
 
     def _get_provider(self, provider_name: str) -> PublishProvider:
-        """Récupère le provider approprié depuis le registre."""
         provider_normalized = provider_name.strip().lower()
         if provider_normalized not in self._providers:
             raise PipelineServiceError(
@@ -53,6 +50,10 @@ class PipelineService:
             f"UPSCALE_MODELS_DIR={settings.upscayl_models_dir}",
             f"MAGICK_BIN={settings.magick_bin}",
             f"RCLONE_BIN={settings.rclone_bin}",
+            f"RAW_DIR_NAME={settings.raw_dir_name}",
+            f"UPSCALED_DIR_NAME={settings.upscaled_dir_name}",
+            f"FINAL_DIR_NAME={settings.final_dir_name}",
+            f"PUBLISHED_DIR_NAME={settings.published_dir_name}",
         ]
 
     def _run_make_command(self, args: list[str], start_message: str) -> PipelineResult:
@@ -61,19 +62,27 @@ class PipelineService:
         make_args = self._build_make_args(args)
         logger.info("Exécution commande make : %s", " ".join(make_args))
 
-        process = subprocess.Popen(
-            make_args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            cwd=str(BASE_DIR),
-            bufsize=1,
-        )
+        try:
+            process = subprocess.Popen(
+                make_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=str(BASE_DIR),
+                bufsize=1,
+            )
+        except OSError as exc:
+            result.success = False
+            result.message = f"Impossible de lancer la commande système : {exc}"
+            result.add_log(f"❌ ERREUR SYSTÈME : {exc}")
+            return result
+
         assert process.stdout is not None
         for line in process.stdout:
             cleaned = line.rstrip()
             if cleaned:
                 result.add_log(cleaned)
+
         process.stdout.close()
         return_code = process.wait()
 
@@ -136,7 +145,7 @@ class PipelineService:
         try:
             raw_file_path.unlink()
             result.add_log(f"🗑️ RAW supprimé après upscale : {raw_file_path.name}")
-        except Exception as exc:
+        except OSError as exc:
             result.add_log(f"⚠️ RAW non supprimé : {exc}")
 
         result.message = "Étape 1 terminée."
@@ -218,7 +227,7 @@ class PipelineService:
             combined_logs.append(
                 f"🗑️ Fichier UPSCALED supprimé après fermeture GIMP : {upscaled_file_path.name}"
             )
-        except Exception as exc:
+        except OSError as exc:
             combined_logs.append(f"⚠️ Fichier UPSCALED non supprimé : {exc}")
 
         combined_logs.append(
@@ -236,7 +245,7 @@ class PipelineService:
         collection_name: str,
         final_filename: str,
         provider: str,
-        **kwargs: Any,  # <--- DÉCOUPLAGE: Remplacement strict de "template_id: str"
+        **kwargs: Any,
     ) -> PipelineResult:
         ensure_collection_dirs(collection_name)
         paths = get_collection_paths(collection_name)
@@ -282,10 +291,10 @@ class PipelineService:
             sync_result.message = "Échec upload Google Drive."
             return sync_result
 
-        # APPEL DU PROVIDER DÉCOUPLÉ
-        # On passe directement tous les **kwargs. Printify lira pos_x, Gelato lira template_id.
         publish_result = active_provider.publish(
-            collection_name=collection_name, file_path=final_file_path, **kwargs
+            collection_name=collection_name,
+            file_path=final_file_path,
+            **kwargs,
         )
 
         combined_logs = sync_result.logs + publish_result.logs
@@ -305,7 +314,7 @@ class PipelineService:
             combined_logs.append(
                 f"📦 Déplacement vers 04_publies : {published_file_path.name}"
             )
-        except Exception as exc:
+        except OSError as exc:
             combined_logs.append(f"❌ Erreur archivage local : {exc}")
             return PipelineResult(
                 success=False,
