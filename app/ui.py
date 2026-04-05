@@ -1,4 +1,3 @@
-# app/ui.py
 from __future__ import annotations
 
 import json
@@ -20,12 +19,13 @@ logger = get_logger(__name__)
 pipeline_service = PipelineService()
 
 
-# 🗂️ Chargement dynamique des templates
 def load_templates() -> dict[str, str]:
+    """Charge les templates Gelato depuis templates.json."""
     template_file = Path(__file__).parent / "templates.json"
     if template_file.exists():
-        with open(template_file, encoding="utf-8") as f:
-            return json.load(f)
+        with open(template_file, encoding="utf-8") as file:
+            return json.load(file)
+
     logger.warning(
         "Fichier templates.json introuvable, utilisation d'un dictionnaire vide."
     )
@@ -49,6 +49,7 @@ def _safe_raw_files(collection_name: str | None) -> list[str]:
             return []
         return list_raw_files(collection_name)
     except Exception:
+        logger.exception("Erreur chargement fichiers RAW")
         return []
 
 
@@ -58,6 +59,7 @@ def _safe_upscaled_files(collection_name: str | None) -> list[str]:
             return []
         return list_upscaled_files(collection_name)
     except Exception:
+        logger.exception("Erreur chargement fichiers upscaled")
         return []
 
 
@@ -67,13 +69,17 @@ def _safe_final_files(collection_name: str | None) -> list[str]:
             return []
         return list_final_files(collection_name)
     except Exception:
+        logger.exception("Erreur chargement fichiers finaux")
         return []
 
 
-def _build_stage_dropdowns(collection_name: str | None):
+def _build_stage_dropdowns(
+    collection_name: str | None,
+) -> tuple[gr.Dropdown, gr.Dropdown, gr.Dropdown]:
     raw_files = _safe_raw_files(collection_name)
     upscaled_files = _safe_upscaled_files(collection_name)
     final_files = _safe_final_files(collection_name)
+
     return (
         gr.Dropdown(
             choices=raw_files,
@@ -109,7 +115,8 @@ def refresh_collections_ui():
 
 def run_step_1(collection_name: str, raw_filename: str):
     result = pipeline_service.run_upscale(
-        collection_name=collection_name, raw_filename=raw_filename
+        collection_name=collection_name,
+        raw_filename=raw_filename,
     )
     raw_drop, upscaled_drop, final_drop = _build_stage_dropdowns(collection_name)
     return result.full_logs(), raw_drop, upscaled_drop, final_drop
@@ -117,16 +124,19 @@ def run_step_1(collection_name: str, raw_filename: str):
 
 def run_step_2(collection_name: str, upscaled_filename: str):
     result = pipeline_service.run_edit_finalize(
-        collection_name=collection_name, upscaled_filename=upscaled_filename
+        collection_name=collection_name,
+        upscaled_filename=upscaled_filename,
     )
     raw_drop, upscaled_drop, final_drop = _build_stage_dropdowns(collection_name)
     return result.full_logs(), raw_drop, upscaled_drop, final_drop
 
 
 def run_step_3(
-    collection_name: str, final_filename: str, provider: str, template_name: str
+    collection_name: str,
+    final_filename: str,
+    provider: str,
+    template_name: str,
 ):
-    # On récupère l'ID Gelato correspondant au nom choisi
     template_id = GELATO_TEMPLATES.get(template_name, "")
 
     result = pipeline_service.run_publish(
@@ -145,6 +155,7 @@ def shutdown_message():
 
 def create_app() -> gr.Blocks:
     collections = _safe_collections()
+    template_names = list(GELATO_TEMPLATES.keys())
 
     with gr.Blocks(title="21 WEAR - POD") as app:
         with gr.Row():
@@ -153,7 +164,10 @@ def create_app() -> gr.Blocks:
 
         with gr.Row():
             drop_col = gr.Dropdown(
-                choices=collections, value=None, label="Collection", scale=2
+                choices=collections,
+                value=None,
+                label="Collection",
+                scale=2,
             )
             drop_provider = gr.Dropdown(
                 choices=["gelato", "printify"],
@@ -161,10 +175,9 @@ def create_app() -> gr.Blocks:
                 label="Fournisseur",
                 scale=1,
             )
-            # Lecture dynamique des clés du JSON
             drop_template = gr.Dropdown(
-                choices=list(GELATO_TEMPLATES.keys()),
-                value=list(GELATO_TEMPLATES.keys())[0] if GELATO_TEMPLATES else None,
+                choices=template_names,
+                value=template_names[0] if template_names else None,
                 label="Modèle (Template Gelato)",
                 scale=2,
             )
@@ -172,7 +185,10 @@ def create_app() -> gr.Blocks:
 
         with gr.Row():
             drop_raw = gr.Dropdown(
-                choices=[], value=None, label="1️⃣ Source RAW (01_canva_raw)", scale=1
+                choices=[],
+                value=None,
+                label="1️⃣ Source RAW (01_canva_raw)",
+                scale=1,
             )
             drop_upscaled = gr.Dropdown(
                 choices=[],
