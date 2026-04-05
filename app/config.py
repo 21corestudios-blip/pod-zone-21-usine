@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -19,14 +18,12 @@ class ConfigError(Exception):
 
 def _get_env(
     key: str,
-    default: Optional[str] = None,
+    default: str | None = None,
     required: bool = False,
 ) -> str:
     value = os.getenv(key, default)
     if required and (value is None or str(value).strip() == ""):
-        raise ConfigError(
-            f"Variable d'environnement obligatoire manquante : {key}"
-        )
+        raise ConfigError(f"Variable d'environnement obligatoire manquante : {key}")
     return "" if value is None else value.strip()
 
 
@@ -86,9 +83,7 @@ class Settings:
             errors.append("WAREHOUSE_DIR est vide.")
 
         if self.default_provider not in {"gelato", "printify"}:
-            errors.append(
-                "DEFAULT_PROVIDER doit être 'gelato' ou 'printify'."
-            )
+            errors.append("DEFAULT_PROVIDER doit être 'gelato' ou 'printify'.")
 
         if self.port <= 0:
             errors.append("PORT doit être un entier positif.")
@@ -110,18 +105,16 @@ def load_settings() -> Settings:
         debug=_get_bool_env("DEBUG", False),
         host=_get_env("HOST", "127.0.0.1"),
         port=int(_get_env("PORT", "7861")),
-        gradio_share=_get_bool_env("GRADIO_SHARE", True),
+        # CORRECTION SÉCURITÉ : False au lieu de True
+        gradio_share=_get_bool_env("GRADIO_SHARE", False),
         auto_open_browser=_get_bool_env("AUTO_OPEN_BROWSER", True),
-
         warehouse_dir=Path(
             _get_env("WAREHOUSE_DIR", str(BASE_DIR / "workspace"))
         ).expanduser(),
-
         raw_dir_name=_get_env("RAW_DIR_NAME", "01_canva_raw"),
         upscaled_dir_name=_get_env("UPSCALED_DIR_NAME", "02_upscaled"),
         final_dir_name=_get_env("FINAL_DIR_NAME", "03_final_png"),
         published_dir_name=_get_env("PUBLISHED_DIR_NAME", "04_publies"),
-
         gimp_bin=_get_env(
             "GIMP_BIN",
             "/Applications/GIMP.app/Contents/MacOS/gimp",
@@ -136,18 +129,14 @@ def load_settings() -> Settings:
         ),
         magick_bin=_get_env("MAGICK_BIN", "magick"),
         rclone_bin=_get_env("RCLONE_BIN", "rclone"),
-
         default_provider=_get_env("DEFAULT_PROVIDER", "gelato").lower(),
-
         gelato_api_key=_get_env("GELATO_API_KEY", ""),
         gelato_store_id=_get_env("GELATO_STORE_ID", ""),
         gelato_template_id=_get_env("GELATO_TEMPLATE_ID", ""),
-
         printify_api_token=_get_env("PRINTIFY_API_TOKEN", ""),
         printify_shop_id=_get_env("PRINTIFY_SHOP_ID", ""),
         printify_blueprint_id=_get_env("PRINTIFY_BLUEPRINT_ID", ""),
         printify_print_provider_id=_get_env("PRINTIFY_PRINT_PROVIDER_ID", ""),
-
         google_drive_credentials_file=_get_env(
             "GOOGLE_DRIVE_CREDENTIALS_FILE",
             str(BASE_DIR / "mycreds.txt"),

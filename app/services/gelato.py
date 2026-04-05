@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import requests
 
 from app.config import settings
 from app.logger import get_logger
 from app.models import PipelineResult
+from app.providers.base import PublishProvider
 from app.services.drive import DriveService, DriveServiceError
 
 logger = get_logger(__name__)
@@ -17,7 +19,7 @@ class GelatoServiceError(Exception):
     """Erreur métier liée à Gelato."""
 
 
-class GelatoService:
+class GelatoService(PublishProvider):
     # 🆕 On utilise l'API Ecommerce pour publier des produits en boutique
     BASE_URL = "https://ecommerce.gelatoapis.com/v1"
 
@@ -43,7 +45,11 @@ class GelatoService:
         }
 
     def publish(
-        self, collection_name: str, file_path: Path, template_id: str = ""
+        self,
+        collection_name: str,
+        file_path: Path,
+        template_id: str = "",
+        **kwargs: Any,
     ) -> PipelineResult:
         result = PipelineResult(success=False, message="Publication Gelato échouée.")
 

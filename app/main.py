@@ -6,6 +6,7 @@ from app.ui import create_app
 
 logger = get_logger(__name__)
 
+
 def main() -> None:
     logger.info("Démarrage de %s", settings.app_name)
     logger.info("Environnement : %s", settings.app_env)
@@ -15,7 +16,7 @@ def main() -> None:
 
     # On appelle la fonction de ui.py pour générer l'interface
     app = create_app()
-    
+
     # On lance l'application avec tes paramètres
     app.launch(
         server_name=settings.host,
@@ -23,6 +24,7 @@ def main() -> None:
         inbrowser=settings.auto_open_browser,
         share=settings.gradio_share,
     )
+
 
 if __name__ == "__main__":
     main()

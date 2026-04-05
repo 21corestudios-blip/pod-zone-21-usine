@@ -7,6 +7,7 @@ import subprocess
 from app.config import BASE_DIR, settings
 from app.logger import get_logger
 from app.models import PipelineResult
+from app.providers.base import PublishProvider
 from app.services.files import (
     build_png_filename,
     ensure_collection_dirs,
@@ -28,8 +29,20 @@ class PipelineServiceError(Exception):
 
 class PipelineService:
     def __init__(self) -> None:
-        self.gelato_service = GelatoService()
-        self.printify_service = PrintifyService()
+        # FACTORY : On enregistre dynamiquement nos providers
+        self._providers: dict[str, PublishProvider] = {
+            "gelato": GelatoService(),
+            "printify": PrintifyService(),
+        }
+
+    def _get_provider(self, provider_name: str) -> PublishProvider:
+        """Récupère le provider approprié depuis le registre."""
+        provider_normalized = provider_name.strip().lower()
+        if provider_normalized not in self._providers:
+            raise PipelineServiceError(
+                f"Provider invalide ou inconnu : {provider_name}"
+            )
+        return self._providers[provider_normalized]
 
     def _build_make_args(self, args: list[str]) -> list[str]:
         return [
@@ -234,14 +247,6 @@ class PipelineService:
                 logs=["❌ Erreur : sélectionnez un design dans 03_final_png."],
             )
 
-        provider_normalized = provider.strip().lower()
-        if provider_normalized not in {"gelato", "printify"}:
-            return PipelineResult(
-                success=False,
-                message="Provider invalide.",
-                logs=[f"❌ Provider invalide : {provider}"],
-            )
-
         final_file_path = paths.final_dir / build_png_filename(final_filename)
         file_png = build_png_filename(final_filename)
 
@@ -250,6 +255,15 @@ class PipelineService:
                 success=False,
                 message=f"Fichier FINAL introuvable : {final_file_path}",
                 logs=[f"❌ Fichier FINAL introuvable : {final_file_path}"],
+            )
+
+        try:
+            active_provider = self._get_provider(provider)
+        except PipelineServiceError as exc:
+            return PipelineResult(
+                success=False,
+                message="Provider invalide.",
+                logs=[f"❌ {exc}"],
             )
 
         sync_result = self._run_make_command(
@@ -267,24 +281,20 @@ class PipelineService:
             sync_result.message = "Échec upload Google Drive."
             return sync_result
 
-        if provider_normalized == "gelato":
-            publish_result = self.gelato_service.publish(
-                collection_name=collection_name,
-                file_path=final_file_path,
-                template_id=template_id,  # 🆕 On passe le bon template ID
-            )
-        else:
-            publish_result = self.printify_service.publish(
-                collection_name=collection_name,
-                file_path=final_file_path,
-            )
+        # APPEL DU PROVIDER DÉCOUPLÉ
+        # On passe template_id via **kwargs. Printify l'ignorera, Gelato l'utilisera.
+        publish_result = active_provider.publish(
+            collection_name=collection_name,
+            file_path=final_file_path,
+            template_id=template_id,
+        )
 
         combined_logs = sync_result.logs + publish_result.logs
 
         if not publish_result.success:
             return PipelineResult(
                 success=False,
-                message=f"Échec publication {provider_normalized}.",
+                message=f"Échec publication {provider}.",
                 logs=combined_logs,
             )
 
@@ -304,10 +314,10 @@ class PipelineService:
                 logs=combined_logs,
             )
 
-        combined_logs.append(f"✅ Cycle terminé avec succès sur {provider_normalized}.")
+        combined_logs.append(f"✅ Cycle terminé avec succès sur {provider}.")
         return PipelineResult(
             success=True,
-            message=f"Publication {provider_normalized} réussie.",
+            message=f"Publication {provider} réussie.",
             logs=combined_logs,
             output_file=published_file_path,
         )

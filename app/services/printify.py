@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import requests
 
 from app.config import settings
 from app.logger import get_logger
 from app.models import PipelineResult
+from app.providers.base import PublishProvider
 from app.services.drive import DriveService, DriveServiceError
-
 
 logger = get_logger(__name__)
 
@@ -19,7 +20,7 @@ class PrintifyServiceError(Exception):
     """Erreur métier liée à Printify."""
 
 
-class PrintifyService:
+class PrintifyService(PublishProvider):
     BASE_URL = "https://api.printify.com/v1"
 
     def __init__(self, drive_service: DriveService | None = None) -> None:
@@ -42,8 +43,7 @@ class PrintifyService:
 
         if missing_fields:
             raise PrintifyServiceError(
-                "Configuration Printify incomplète : "
-                + ", ".join(missing_fields)
+                "Configuration Printify incomplète : " + ", ".join(missing_fields)
             )
 
     def build_headers(self) -> dict[str, str]:
@@ -93,9 +93,7 @@ class PrintifyService:
         }
 
     def publish(
-        self,
-        collection_name: str,
-        file_path: Path,
+        self, collection_name: str, file_path: Path, **kwargs: Any
     ) -> PipelineResult:
         result = PipelineResult(
             success=False,
@@ -110,9 +108,7 @@ class PrintifyService:
                     f"Fichier introuvable pour publication Printify : {file_path}"
                 )
 
-            result.add_log(
-                f"📦 Préparation publication Printify : {file_path.name}"
-            )
+            result.add_log(f"📦 Préparation publication Printify : {file_path.name}")
 
             try:
                 file_url = self.drive_service.get_public_download_url_by_name(
@@ -125,8 +121,7 @@ class PrintifyService:
 
             payload = self.build_payload(file_path=file_path, file_url=file_url)
             endpoint = (
-                f"{self.BASE_URL}/shops/"
-                f"{settings.printify_shop_id}/products.json"
+                f"{self.BASE_URL}/shops/{settings.printify_shop_id}/products.json"
             )
 
             logger.info(

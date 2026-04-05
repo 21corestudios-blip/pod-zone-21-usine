@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from app.config import BASE_DIR
-
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,22 @@
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+# E: pycodestyle (erreurs de style)
+# F: pyflakes (erreurs de syntaxe, imports inutilisés)
+# I: isort (tri des imports)
+# UP: pyupgrade (modernisation syntaxe Python)
+select = ["E", "F", "I", "UP"]
+# AJOUT : On laisse Black gérer la longueur des textes/logs
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"

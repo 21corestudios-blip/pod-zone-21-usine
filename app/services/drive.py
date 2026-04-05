@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
 from app.config import settings
 from app.logger import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -21,7 +19,7 @@ class DriveServiceError(Exception):
 
 class DriveService:
     def __init__(self) -> None:
-        self._drive: Optional[GoogleDrive] = None
+        self._drive: GoogleDrive | None = None
 
     def _build_auth(self) -> GoogleAuth:
         credentials_file = Path(settings.google_drive_credentials_file)
@@ -35,11 +33,16 @@ class DriveService:
         gauth = GoogleAuth()
         gauth.settings["client_config_file"] = str(client_secrets_file)
 
+        # AJOUT CRUCIAL : Force la demande d'un accès "offline" pour obtenir le Refresh Token
+        gauth.settings["get_refresh_token"] = True
+
         if credentials_file.exists():
             gauth.LoadCredentialsFile(str(credentials_file))
 
         if gauth.credentials is None:
-            logger.info("Aucun credential Drive trouvé. Lancement de l'authentification web.")
+            logger.info(
+                "Aucun credential Drive trouvé. Lancement de l'authentification web."
+            )
             gauth.LocalWebserverAuth()
         elif gauth.access_token_expired:
             logger.info("Token Drive expiré. Tentative de refresh.")
@@ -63,17 +66,13 @@ class DriveService:
             raise DriveServiceError("Le nom du fichier Drive est vide.")
 
         drive = self.get_drive()
-        query = {
-            "q": f"title = '{file_name}' and trashed = false"
-        }
+        query = {"q": f"title = '{file_name}' and trashed = false"}
 
         logger.info("Recherche Drive du fichier : %s", file_name)
         files = drive.ListFile(query).GetList()
 
         if not files:
-            raise DriveServiceError(
-                f"Aucun fichier Drive trouvé pour : {file_name}"
-            )
+            raise DriveServiceError(f"Aucun fichier Drive trouvé pour : {file_name}")
 
         if len(files) > 1:
             raise DriveServiceError(
@@ -88,7 +87,9 @@ class DriveService:
                 "La mise en lecture publique est désactivée dans la configuration."
             )
 
-        logger.info("Passage en lecture publique du fichier Drive : %s", drive_file["title"])
+        logger.info(
+            "Passage en lecture publique du fichier Drive : %s", drive_file["title"]
+        )
         drive_file.InsertPermission(
             {
                 "type": "anyone",
@@ -101,7 +102,9 @@ class DriveService:
         file_id = drive_file["id"]
 
         if not file_id:
-            raise DriveServiceError("Impossible de récupérer l'identifiant du fichier Drive.")
+            raise DriveServiceError(
+                "Impossible de récupérer l'identifiant du fichier Drive."
+            )
 
         return f"https://drive.google.com/uc?export=download&id={file_id}"
 
