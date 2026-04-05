@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -88,11 +89,21 @@ class Settings:
         if self.port <= 0:
             errors.append("PORT doit être un entier positif.")
 
+        # VÉRIFICATIONS PHYSIQUES DES BINAIRES (Fail-Fast)
         if not self.upscayl_bin:
             errors.append("UPSCALE_BIN est vide.")
+        elif not Path(self.upscayl_bin).exists() and not shutil.which(self.upscayl_bin):
+            errors.append(f"Upscayl introuvable à cet emplacement : {self.upscayl_bin}")
 
         if not self.upscayl_models_dir:
             errors.append("UPSCALE_MODELS_DIR est vide.")
+        elif not Path(self.upscayl_models_dir).exists():
+            errors.append(
+                f"Dossier modèles Upscayl introuvable : {self.upscayl_models_dir}"
+            )
+
+        if not Path(self.gimp_bin).exists() and not shutil.which(self.gimp_bin):
+            errors.append(f"GIMP introuvable à cet emplacement : {self.gimp_bin}")
 
         if errors:
             raise ConfigError("Configuration invalide :\n- " + "\n- ".join(errors))
@@ -105,7 +116,6 @@ def load_settings() -> Settings:
         debug=_get_bool_env("DEBUG", False),
         host=_get_env("HOST", "127.0.0.1"),
         port=int(_get_env("PORT", "7861")),
-        # CORRECTION SÉCURITÉ : False au lieu de True
         gradio_share=_get_bool_env("GRADIO_SHARE", False),
         auto_open_browser=_get_bool_env("AUTO_OPEN_BROWSER", True),
         warehouse_dir=Path(

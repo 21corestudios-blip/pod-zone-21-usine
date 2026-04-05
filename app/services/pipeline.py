@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from typing import Any
 
 from app.config import BASE_DIR, settings
 from app.logger import get_logger
@@ -235,7 +236,7 @@ class PipelineService:
         collection_name: str,
         final_filename: str,
         provider: str,
-        template_id: str = "",
+        **kwargs: Any,  # <--- DÉCOUPLAGE: Remplacement strict de "template_id: str"
     ) -> PipelineResult:
         ensure_collection_dirs(collection_name)
         paths = get_collection_paths(collection_name)
@@ -282,11 +283,9 @@ class PipelineService:
             return sync_result
 
         # APPEL DU PROVIDER DÉCOUPLÉ
-        # On passe template_id via **kwargs. Printify l'ignorera, Gelato l'utilisera.
+        # On passe directement tous les **kwargs. Printify lira pos_x, Gelato lira template_id.
         publish_result = active_provider.publish(
-            collection_name=collection_name,
-            file_path=final_file_path,
-            template_id=template_id,
+            collection_name=collection_name, file_path=final_file_path, **kwargs
         )
 
         combined_logs = sync_result.logs + publish_result.logs

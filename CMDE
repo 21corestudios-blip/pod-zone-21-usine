@@ -8,3 +8,5 @@ git add .
 git diff --cached --name-only
 git commit -m "message clair"
 git push
+
+Lancement test : python3 -m black app/ tests/

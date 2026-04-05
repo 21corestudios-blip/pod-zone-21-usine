@@ -1,6 +1,9 @@
 # app/ui.py
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import gradio as gr
 
 from app.config import settings
@@ -16,28 +19,20 @@ from app.services.pipeline import PipelineService
 logger = get_logger(__name__)
 pipeline_service = PipelineService()
 
-# 🗂️ Ton dictionnaire de Templates Gelato
-GELATO_TEMPLATES = {
-    "T-shirt Premium (Bella+Canvas 3001)": "8ea9e153-0093-44f4-be2b-45692850e77a",
-    "T-shirt Bio (SOL'S 03981)": "e7468f3b-6b15-413a-87a6-4d12372ce8dc",
-    "T-shirt Lourd (Bella+Canvas 3010)": "ba23e412-762d-4562-ab35-9adba14e49bd",
-    "T-shirt Ample Bio (SOL'S 03806)": "cb73a6dc-db4f-4ed6-be90-5695095ee51a",
-    "Sweat à Capuche Premium": "cc38b500-4acd-4f76-99c4-5c7ae3ef6a18",
-    "Sweat à Capuche (SOL'S 04232)": "2ca73bb4-cd68-45dc-a8bf-d20fcf33fe4f",
-    "Sweat Col Rond (SOL'S 03574)": "514cf5b0-fb1e-4565-ab0b-56652a875c32",
-    "Sweat Col Rond (Bella+Canvas 3901)": "dc7270c2-1062-46e5-9d95-7a2a919ef4e5",
-    "Polo Homme Ajusté (SOL'S 11346)": "903bbe8d-aa7b-4805-b7d2-514cfa3fc1da",
-    "Jogging Unisexe Bio (SOL'S 03810)": "72d3283d-3ca4-46e0-95fe-e8fa9ec6bd34",
-    "Casquette Coton Sergé (Yupoong 6245CM)": "93f66567-9fde-43da-9005-84c6894e29e2",
-    "Casquette Bio (Beechfield B54N)": "228005fb-a6bf-4f35-9e10-284258a91679",
-    "Casquette Visière Plate (Yupoong 6007)": "c52fe54d-fa85-4bc0-bd4f-c4c63c3f054f",
-    "Casquette Snapback (Beechfield B610)": "a2ddf35f-95eb-4f4f-a5ed-2c17bc0a5456",
-    "Casquette Trucker (Beechfield B640)": "ab450f68-5b7b-4734-bbc4-f1ce7ef1fa1b",
-    "Casquette Trucker (Yupoong 6006)": "eb37a4c7-a08c-4313-8f9c-2e75001248e5",
-    "Bonnet Tricoté (Yupoong 1500)": "334d6fdd-38dd-499c-9253-863a975254db",
-    "Bonnet à Revers (Beechfield B45)": "8326fed8-4d9d-4d99-b688-fa80042a9adf",
-    "Premium Tote Bag": "757a6475-80e3-42af-bb75-55f5246a5a54",
-}
+
+# 🗂️ Chargement dynamique des templates
+def load_templates() -> dict[str, str]:
+    template_file = Path(__file__).parent / "templates.json"
+    if template_file.exists():
+        with open(template_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    logger.warning(
+        "Fichier templates.json introuvable, utilisation d'un dictionnaire vide."
+    )
+    return {"Template par défaut": ""}
+
+
+GELATO_TEMPLATES = load_templates()
 
 
 def _safe_collections() -> list[str]:
@@ -166,10 +161,10 @@ def create_app() -> gr.Blocks:
                 label="Fournisseur",
                 scale=1,
             )
-            # 🆕 Nouveau menu déroulant pour les templates
+            # Lecture dynamique des clés du JSON
             drop_template = gr.Dropdown(
                 choices=list(GELATO_TEMPLATES.keys()),
-                value=list(GELATO_TEMPLATES.keys())[0],
+                value=list(GELATO_TEMPLATES.keys())[0] if GELATO_TEMPLATES else None,
                 label="Modèle (Template Gelato)",
                 scale=2,
             )
@@ -217,8 +212,6 @@ def create_app() -> gr.Blocks:
             inputs=[drop_col, drop_upscaled],
             outputs=[console, drop_raw, drop_upscaled, drop_final],
         )
-
-        # 🆕 On passe maintenant le drop_template à la fonction step 3
         btn3.click(
             fn=run_step_3,
             inputs=[drop_col, drop_final, drop_provider, drop_template],

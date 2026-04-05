@@ -52,12 +52,15 @@ class PrintifyService(PublishProvider):
             "Content-Type": "application/json",
         }
 
-    def build_payload(
-        self,
-        file_path: Path,
-        file_url: str,
-    ) -> dict:
+    def build_payload(self, file_path: Path, file_url: str, **kwargs: Any) -> dict:
         title = file_path.stem
+
+        # RÉCUPÉRATION DYNAMIQUE AVEC VALEURS PAR DÉFAUT
+        price = kwargs.get("price", 4900)
+        pos_x = kwargs.get("pos_x", 0.5)
+        pos_y = kwargs.get("pos_y", 0.5)
+        scale = kwargs.get("scale", 1.0)
+        variant_id = kwargs.get("variant_id", 1)
 
         return {
             "title": title,
@@ -66,23 +69,23 @@ class PrintifyService(PublishProvider):
             "print_provider_id": int(settings.printify_print_provider_id),
             "variants": [
                 {
-                    "id": 1,
-                    "price": 4900,
+                    "id": variant_id,
+                    "price": price,
                     "is_enabled": True,
                 }
             ],
             "print_areas": [
                 {
-                    "variant_ids": [1],
+                    "variant_ids": [variant_id],
                     "placeholders": [
                         {
                             "position": "front",
                             "images": [
                                 {
                                     "id": file_url,
-                                    "x": 0.5,
-                                    "y": 0.5,
-                                    "scale": 1,
+                                    "x": pos_x,
+                                    "y": pos_y,
+                                    "scale": scale,
                                     "angle": 0,
                                 }
                             ],
@@ -119,7 +122,9 @@ class PrintifyService(PublishProvider):
 
             result.add_log("☁️ URL Drive récupérée avec succès.")
 
-            payload = self.build_payload(file_path=file_path, file_url=file_url)
+            payload = self.build_payload(
+                file_path=file_path, file_url=file_url, **kwargs
+            )
             endpoint = (
                 f"{self.BASE_URL}/shops/{settings.printify_shop_id}/products.json"
             )
