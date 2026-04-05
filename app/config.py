@@ -19,6 +19,7 @@ class ConfigError(Exception):
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
 FALSE_VALUES = {"0", "false", "no", "off"}
+SUPPORTED_PROVIDERS = {"gelato", "printify"}
 
 
 def _get_env(
@@ -73,8 +74,14 @@ def _first_existing_path(*candidates: str) -> str:
     for candidate in candidates:
         if not candidate:
             continue
-        if Path(candidate).exists():
+
+        expanded = Path(candidate).expanduser()
+        if expanded.exists():
+            return str(expanded)
+
+        if shutil.which(candidate):
             return candidate
+
     return candidates[0] if candidates else ""
 
 
@@ -167,7 +174,7 @@ class Settings:
                         f"WAREHOUSE_DIR n'est pas un dossier : {self.warehouse_dir}"
                     )
 
-        if self.default_provider not in {"gelato", "printify"}:
+        if self.default_provider not in SUPPORTED_PROVIDERS:
             errors.append("DEFAULT_PROVIDER doit être 'gelato' ou 'printify'.")
 
         if self.port <= 0 or self.port > 65535:
