@@ -181,7 +181,10 @@ def create_app() -> gr.Blocks:
                 scale=1,
             )
             drop_final = gr.Dropdown(
-                choices=[], value=None, label="3️⃣ Fichier final (03_final_png)", scale=1
+                choices=[],
+                value=None,
+                label="3️⃣ Fichier final (03_final_png)",
+                scale=1,
             )
 
         with gr.Row():
