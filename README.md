@@ -12,46 +12,49 @@ Le projet automatise un cycle local simple :
 6. publication via **Gelato** ou **Printify** ;
 7. archivage local du fichier publié.
 
----
-
 ## Objectif du projet
 
 Ce dépôt n'est pas un framework générique POD.
 
 C'est un **outil local orienté production**, conçu pour :
+
 - exploiter une arborescence de collections ;
 - enchaîner des outils locaux déjà installés ;
 - piloter le flux depuis une UI Gradio ;
 - publier sur plusieurs providers sans dupliquer la logique d'orchestration.
 
 Le choix ici est volontairement pragmatique :
+
 - orchestration Python ;
 - exécution système via `make` ;
 - dépendances locales explicites ;
 - pas de sur-architecture.
 
----
-
 ## Structure du dépôt
 
 ```text
 app/
+  __init__.py
   config.py
-  main.py
-  ui.py
-  models.py
   logger.py
+  main.py
+  models.py
+  templates.json
+  ui.py
   providers/
   services/
+
 scripts/
   run_local.sh
+
 tests/
   test_config.py
   test_files.py
   test_payloads.py
   test_pipeline.py
+
+.env.example
 Makefile
 README.md
 pyproject.toml
 requirements.txt
-.env.example
