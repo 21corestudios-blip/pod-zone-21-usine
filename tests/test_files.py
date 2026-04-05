@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from app.services.files import build_png_filename

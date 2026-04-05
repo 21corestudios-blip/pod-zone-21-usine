@@ -24,7 +24,7 @@ pipeline_service = PipelineService()
 def load_templates() -> dict[str, str]:
     template_file = Path(__file__).parent / "templates.json"
     if template_file.exists():
-        with open(template_file, "r", encoding="utf-8") as f:
+        with open(template_file, encoding="utf-8") as f:
             return json.load(f)
     logger.warning(
         "Fichier templates.json introuvable, utilisation d'un dictionnaire vide."

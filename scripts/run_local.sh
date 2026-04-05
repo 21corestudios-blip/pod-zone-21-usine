@@ -1,46 +1,46 @@
 #!/usr/bin/env bash
-set -e
 
-# Se placer à la racine du projet
-cd "$(dirname "$0")/.."
+set -euo pipefail
 
-echo "🏭 Initialisation de l'usine POD Zone 21..."
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${PROJECT_ROOT}"
 
-# 1. Vérification du fichier d'environnement
-if [ ! -f .env ]; then
-    echo "⚠️ Fichier .env introuvable."
-    if [ -f .env.example ]; then
-        echo "Copie de .env.example vers .env..."
-        cp .env.example .env
-        echo "👉 IMPORTANT: Veuillez configurer vos clés dans le fichier .env avant de continuer."
-    else
-        echo "❌ Fichier .env.example manquant. Impossible de créer l'environnement."
-        exit 1
-    fi
+echo "🚀 Initialisation de l'usine POD Zone 21..."
+
+if [[ ! -f .env ]]; then
+  echo "⚠️ Fichier .env introuvable."
+  if [[ -f .env.example ]]; then
+    echo "📄 Copie de .env.example vers .env..."
+    cp .env.example .env
+    echo "✏️ Complétez le fichier .env si nécessaire avant publication."
+  else
+    echo "❌ Fichier .env.example manquant."
+    exit 1
+  fi
 fi
 
-# 2. Gestion de l'environnement virtuel
-if [ ! -d ".venv" ] && [ ! -d "venv" ]; then
-    echo "📦 Création de l'environnement virtuel (.venv)..."
-    python3 -m venv .venv
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+VENV_DIR="${VENV_DIR:-.venv}"
+
+if [[ ! -d "${VENV_DIR}" ]]; then
+  echo "🐍 Création de l'environnement virtuel (${VENV_DIR})..."
+  "${PYTHON_BIN}" -m venv "${VENV_DIR}"
 fi
 
-# 3. Activation du venv
-echo "🔄 Activation de l'environnement virtuel..."
-if [ -d ".venv" ]; then
-    source .venv/bin/activate
-elif [ -d "venv" ]; then
-    source venv/bin/activate
-fi
+echo "🔌 Activation de l'environnement virtuel..."
+# shellcheck disable=SC1090
+source "${VENV_DIR}/bin/activate"
 
-# 4. Installation des dépendances
-echo "📥 Vérification et installation des dépendances..."
-pip install --upgrade pip -q
-pip install -r requirements.txt -q
+echo "📦 Installation des dépendances..."
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 
-# 5. Création du dossier local si besoin
 mkdir -p workspace
 
-echo "🚀 Lancement de l'application..."
-export PYTHONPATH="$(pwd)"
-python3 -m app.main
+echo "🧪 Validation de la configuration..."
+export PYTHONPATH="${PROJECT_ROOT}"
+python -c "from app.config import load_settings; load_settings()"
+
+echo "✅ Configuration valide."
+echo "🌐 Lancement de l'application..."
+python -m app.main

@@ -1,8 +1,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.services.gelato import GelatoService
 from app.services.printify import PrintifyService
 
@@ -10,7 +8,6 @@ from app.services.printify import PrintifyService
 def test_gelato_publish_payload(monkeypatch):
     """Vérifie le payload JSON final envoyé par Gelato lors de la publication."""
     mock_settings = MagicMock()
-    # On mocke les settings de base
     mock_settings.gelato_store_id = "store_abc"
     mock_settings.gelato_api_key = "key_123"
     monkeypatch.setattr("app.services.gelato.settings", mock_settings)
@@ -23,26 +20,65 @@ def test_gelato_publish_payload(monkeypatch):
     service = GelatoService(drive_service=mock_drive)
     fake_path = Path("/fake/path/design_test.png")
 
+    template_response_payload = {
+        "description": "Template description",
+        "variants": [
+            {
+                "id": "variant_1",
+                "imagePlaceholders": [
+                    {"name": "front"},
+                    {"name": "back"},
+                ],
+            }
+        ],
+    }
+
     with patch.object(Path, "exists", return_value=True):
-        with patch("app.services.gelato.requests.post") as mock_post:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_post.return_value = mock_response
+        with patch("app.services.gelato.requests.get") as mock_get:
+            with patch("app.services.gelato.requests.post") as mock_post:
+                mock_get_response = MagicMock()
+                mock_get_response.status_code = 200
+                mock_get_response.json.return_value = template_response_payload
+                mock_get.return_value = mock_get_response
 
-            # C'EST ICI LA CORRECTION : On passe template_id via les kwargs comme le fait l'UI
-            result = service.publish(
-                collection_name="col", file_path=fake_path, template_id="tpl_123"
-            )
+                mock_post_response = MagicMock()
+                mock_post_response.status_code = 200
+                mock_post.return_value = mock_post_response
 
-            assert mock_post.called, "requests.post n'a pas été appelé"
+                result = service.publish(
+                    collection_name="col",
+                    file_path=fake_path,
+                    template_id="tpl_123",
+                )
 
-            _, kwargs = mock_post.call_args
-            payload = kwargs.get("json", {})
+    assert mock_get.called, "requests.get n'a pas été appelé pour lire le template"
+    assert mock_post.called, "requests.post n'a pas été appelé"
 
-            assert result.success is True, f"Erreur de publication: {result.message}"
-            assert payload["title"] == "design_test"
-            assert payload["templateId"] == "tpl_123"
-            assert payload["files"][0]["url"] == "https://drive.google.com/uc?id=xyz"
+    _, get_kwargs = mock_get.call_args
+    assert get_kwargs["headers"]["X-API-KEY"] == "key_123"
+
+    _, post_kwargs = mock_post.call_args
+    payload = post_kwargs.get("json", {})
+
+    assert result.success is True, f"Erreur de publication: {result.message}"
+    assert payload["title"] == "design_test"
+    assert payload["templateId"] == "tpl_123"
+    assert payload["description"] == "Template description"
+    assert payload["variants"] == [
+        {
+            "templateVariantId": "variant_1",
+            "placeholders": [
+                {
+                    "name": "front",
+                    "fileUrl": "https://drive.google.com/uc?id=xyz",
+                },
+                {
+                    "name": "back",
+                    "fileUrl": "https://drive.google.com/uc?id=xyz",
+                },
+            ],
+        }
+    ]
 
 
 def test_printify_publish_payload(monkeypatch):
@@ -70,17 +106,17 @@ def test_printify_publish_payload(monkeypatch):
 
             result = service.publish(collection_name="col", file_path=fake_path)
 
-            assert mock_post.called, "requests.post n'a pas été appelé"
+    assert mock_post.called, "requests.post n'a pas été appelé"
 
-            _, kwargs = mock_post.call_args
-            payload = kwargs.get("json", {})
+    _, kwargs = mock_post.call_args
+    payload = kwargs.get("json", {})
 
-            assert result.success is True, f"Erreur de publication: {result.message}"
-            assert payload["title"] == "design_test"
-            assert payload["blueprint_id"] == 45
-            assert payload["print_provider_id"] == 10
-            assert payload["variants"][0]["price"] == 4900
-            assert (
-                payload["print_areas"][0]["placeholders"][0]["images"][0]["id"]
-                == "https://drive.google.com/uc?id=abc"
-            )
+    assert result.success is True, f"Erreur de publication: {result.message}"
+    assert payload["title"] == "design_test"
+    assert payload["blueprint_id"] == 45
+    assert payload["print_provider_id"] == 10
+    assert payload["variants"][0]["price"] == 4900
+    assert (
+        payload["print_areas"][0]["placeholders"][0]["images"][0]["id"]
+        == "https://drive.google.com/uc?id=abc"
+    )
