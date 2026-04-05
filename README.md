@@ -1,3 +1,6 @@
+Python 3.11 recommandé
+création du venv avec python3.11
+
 # POD Zone 21 - Usine Locale
 
 Usine locale de traitement d'images et de publication Print-on-Demand (POD), pilotée par une interface **Gradio**.
