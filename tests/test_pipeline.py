@@ -34,11 +34,7 @@ def _build_paths(tmp_path: Path):
     )
 
 
-def test_run_upscale_fails_when_output_file_is_missing(monkeypatch, tmp_path):
-    paths = _build_paths(tmp_path)
-    raw_file = paths.raw_dir / "design.jpg"
-    raw_file.write_text("raw")
-
+def _patch_common_paths(monkeypatch, paths):
     monkeypatch.setattr("app.services.pipeline.ensure_collection_dirs", lambda _: None)
     monkeypatch.setattr("app.services.pipeline.get_collection_paths", lambda _: paths)
     monkeypatch.setattr(
@@ -49,6 +45,22 @@ def test_run_upscale_fails_when_output_file_is_missing(monkeypatch, tmp_path):
         "app.services.pipeline.get_upscaled_file_path",
         lambda collection_name, filename: paths.upscaled_dir / "design.png",
     )
+    monkeypatch.setattr(
+        "app.services.pipeline.get_final_file_path",
+        lambda collection_name, filename: paths.final_dir / "design.png",
+    )
+    monkeypatch.setattr(
+        "app.services.pipeline.get_published_file_path",
+        lambda collection_name, filename: paths.published_dir / "design.png",
+    )
+
+
+def test_run_upscale_fails_when_output_file_is_missing(monkeypatch, tmp_path):
+    paths = _build_paths(tmp_path)
+    _patch_common_paths(monkeypatch, paths)
+
+    raw_file = paths.raw_dir / "design.jpg"
+    raw_file.write_text("raw")
 
     service = PipelineService()
     monkeypatch.setattr(
@@ -68,38 +80,59 @@ def test_run_upscale_fails_when_output_file_is_missing(monkeypatch, tmp_path):
     assert raw_file.exists()
 
 
+def test_run_upscale_succeeds_and_deletes_raw_file(monkeypatch, tmp_path):
+    paths = _build_paths(tmp_path)
+    _patch_common_paths(monkeypatch, paths)
+
+    raw_file = paths.raw_dir / "design.jpg"
+    upscaled_file = paths.upscaled_dir / "design.png"
+    raw_file.write_text("raw")
+    upscaled_file.write_text("upscaled")
+
+    service = PipelineService()
+    monkeypatch.setattr(
+        service,
+        "_run_make_command",
+        lambda args, start_message: PipelineResult(
+            success=True,
+            message="Commande exécutée avec succès.",
+            logs=[start_message, "ok"],
+        ),
+    )
+
+    result = service.run_upscale("collection", "design.jpg")
+
+    assert result.success is True
+    assert result.output_file == upscaled_file
+    assert not raw_file.exists()
+
+
 def test_run_edit_finalize_fails_when_edit_step_fails(monkeypatch, tmp_path):
     paths = _build_paths(tmp_path)
+    _patch_common_paths(monkeypatch, paths)
+
     upscaled_file = paths.upscaled_dir / "design.png"
     final_file = paths.final_dir / "design.png"
 
     upscaled_file.write_text("upscaled")
     final_file.write_text("final")
 
-    monkeypatch.setattr("app.services.pipeline.ensure_collection_dirs", lambda _: None)
-    monkeypatch.setattr("app.services.pipeline.get_collection_paths", lambda _: paths)
-    monkeypatch.setattr(
-        "app.services.pipeline.get_final_file_path",
-        lambda collection_name, filename: final_file,
-    )
-
     service = PipelineService()
 
     def fake_run_make_command(args, start_message):
-        target = args[1]
-        if target == "finalize":
+        if "finalize" in args:
             return PipelineResult(
                 success=True,
                 message="Commande exécutée avec succès.",
                 logs=[start_message, "finalize ok"],
             )
-        if target == "edit":
+        if "edit" in args:
             return PipelineResult(
                 success=False,
                 message="Commande échouée avec code 1.",
                 logs=[start_message, "edit failed"],
             )
-        raise AssertionError(f"Cible inattendue: {target}")
+        raise AssertionError(f"Cible inattendue: {args}")
 
     monkeypatch.setattr(service, "_run_make_command", fake_run_make_command)
 
@@ -114,15 +147,10 @@ def test_run_edit_finalize_fails_when_edit_step_fails(monkeypatch, tmp_path):
 
 def test_run_publish_fails_when_archive_move_fails(monkeypatch, tmp_path):
     paths = _build_paths(tmp_path)
+    _patch_common_paths(monkeypatch, paths)
+
     final_file = paths.final_dir / "design.png"
     final_file.write_text("final")
-
-    monkeypatch.setattr("app.services.pipeline.ensure_collection_dirs", lambda _: None)
-    monkeypatch.setattr("app.services.pipeline.get_collection_paths", lambda _: paths)
-    monkeypatch.setattr(
-        "app.services.pipeline.get_published_file_path",
-        lambda collection_name, filename: paths.published_dir / "design.png",
-    )
 
     service = PipelineService()
     provider = DummyProvider(
@@ -162,3 +190,44 @@ def test_run_publish_fails_when_archive_move_fails(monkeypatch, tmp_path):
     assert provider.calls[0]["collection_name"] == "collection"
     assert provider.calls[0]["file_path"] == final_file
     assert provider.calls[0]["template_id"] == "tpl_123"
+
+
+def test_run_publish_succeeds_and_moves_file(monkeypatch, tmp_path):
+    paths = _build_paths(tmp_path)
+    _patch_common_paths(monkeypatch, paths)
+
+    final_file = paths.final_dir / "design.png"
+    final_file.write_text("final")
+
+    service = PipelineService()
+    provider = DummyProvider(
+        PipelineResult(
+            success=True,
+            message="published",
+            logs=["publish ok"],
+        )
+    )
+    service._providers = {"gelato": provider}
+
+    monkeypatch.setattr(
+        service,
+        "_run_make_command",
+        lambda args, start_message: PipelineResult(
+            success=True,
+            message="Commande exécutée avec succès.",
+            logs=[start_message, "sync ok"],
+        ),
+    )
+
+    result = service.run_publish(
+        "collection",
+        "design.png",
+        "gelato",
+        template_id="tpl_123",
+    )
+
+    published_file = paths.published_dir / "design.png"
+
+    assert result.success is True
+    assert published_file.exists()
+    assert not final_file.exists()
