@@ -82,6 +82,14 @@ class Settings:
 
         if not self.warehouse_dir:
             errors.append("WAREHOUSE_DIR est vide.")
+        else:
+            # Création automatique du dossier s'il n'existe pas (confort dev/local)
+            try:
+                self.warehouse_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                errors.append(
+                    f"Impossible de créer WAREHOUSE_DIR ({self.warehouse_dir}) : {e}"
+                )
 
         if self.default_provider not in {"gelato", "printify"}:
             errors.append("DEFAULT_PROVIDER doit être 'gelato' ou 'printify'.")
@@ -93,7 +101,9 @@ class Settings:
         if not self.upscayl_bin:
             errors.append("UPSCALE_BIN est vide.")
         elif not Path(self.upscayl_bin).exists() and not shutil.which(self.upscayl_bin):
-            errors.append(f"Upscayl introuvable à cet emplacement : {self.upscayl_bin}")
+            errors.append(
+                f"Upscayl introuvable à cet emplacement ou dans le PATH : {self.upscayl_bin}"
+            )
 
         if not self.upscayl_models_dir:
             errors.append("UPSCALE_MODELS_DIR est vide.")
@@ -103,7 +113,9 @@ class Settings:
             )
 
         if not Path(self.gimp_bin).exists() and not shutil.which(self.gimp_bin):
-            errors.append(f"GIMP introuvable à cet emplacement : {self.gimp_bin}")
+            errors.append(
+                f"GIMP introuvable à cet emplacement ou dans le PATH : {self.gimp_bin}"
+            )
 
         if errors:
             raise ConfigError("Configuration invalide :\n- " + "\n- ".join(errors))
@@ -145,8 +157,8 @@ def load_settings() -> Settings:
         gelato_template_id=_get_env("GELATO_TEMPLATE_ID", ""),
         printify_api_token=_get_env("PRINTIFY_API_TOKEN", ""),
         printify_shop_id=_get_env("PRINTIFY_SHOP_ID", ""),
-        printify_blueprint_id=_get_env("PRINTIFY_BLUEPRINT_ID", ""),
-        printify_print_provider_id=_get_env("PRINTIFY_PRINT_PROVIDER_ID", ""),
+        printify_blueprint_id=_get_env("PRINTIFY_BLUEPRINT_ID", "1"),
+        printify_print_provider_id=_get_env("PRINTIFY_PRINT_PROVIDER_ID", "1"),
         google_drive_credentials_file=_get_env(
             "GOOGLE_DRIVE_CREDENTIALS_FILE",
             str(BASE_DIR / "mycreds.txt"),

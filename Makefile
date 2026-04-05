@@ -1,8 +1,9 @@
 .SILENT:
 
-GIMP_BIN ?= /Applications/GIMP.app/Contents/MacOS/gimp
-UPSCALE_BIN ?= /Applications/Upscayl.app/Contents/Resources/bin/upscayl-bin
-UPSCALE_MODELS_DIR ?= /Applications/Upscayl.app/Contents/Resources/models
+# Variables par défaut, écrasables via variables d'environnement ou arguments CLI
+GIMP_BIN ?= gimp
+UPSCALE_BIN ?= upscayl-bin
+UPSCALE_MODELS_DIR ?= models
 MAGICK_BIN ?= magick
 RCLONE_BIN ?= rclone
 

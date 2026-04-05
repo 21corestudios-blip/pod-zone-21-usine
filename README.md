@@ -9,23 +9,10 @@ Usine locale de traitement d'images et de publication Print-on-Demand (POD), pil
 * **Abstraction Providers (`app/providers/base.py`)** : Pattern *Strategy* pour injecter dynamiquement Gelato ou Printify.
 * **Dépendances système** : GIMP (édition), Upscayl (agrandissement IA), ImageMagick (conversion), Rclone (synchronisation cloud).
 
-## 🚀 Installation & Prérequis
+## 🚀 Quick Start (Le plus simple)
 
-### 1. Prérequis Système (macOS)
-L'usine s'appuie sur des binaires locaux qui doivent être installés :
-* **GIMP** : `/Applications/GIMP.app`
-* **Upscayl** : `/Applications/Upscayl.app`
-* **ImageMagick** : `brew install imagemagick`
-* **Rclone** : `brew install rclone`
-
-### 2. Configuration Python
-Le projet nécessite Python 3.9+.
+Si vous êtes sur un environnement macOS/Linux avec les outils installés, utilisez le script local automatisé :
 
 ```bash
-# 1. Créer l'environnement virtuel
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 2. Installer les dépendances
-pip install -r requirements.txt
-pip install pytest ruff black python-dotenv
+chmod +x scripts/run_local.sh
+./scripts/run_local.sh
